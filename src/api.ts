@@ -1,8 +1,12 @@
+// Precedence: localStorage override → env var baked at build time → default
+declare const __WREN_API_URL__: string | undefined;
+const ENV_API_URL = typeof __WREN_API_URL__ !== "undefined" ? __WREN_API_URL__ : undefined;
+
 export function getApiUrl(): string {
   if (typeof localStorage !== "undefined") {
-    return localStorage.getItem("wren_url") ?? "http://localhost:4000";
+    return localStorage.getItem("wren_url") ?? ENV_API_URL ?? "http://localhost:4000";
   }
-  return "http://localhost:4000";
+  return ENV_API_URL ?? "http://localhost:4000";
 }
 
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -94,6 +98,17 @@ export async function signOut(): Promise<void> {
   await req<void>("/api/auth/sign-out", { method: "POST" });
 }
 
+export interface CollectionInfo {
+  name: string;
+  count: number;
+  updatedAt: string;
+}
+
+export async function listCollections(): Promise<CollectionInfo[]> {
+  const res = await req<{ collections: CollectionInfo[] }>("/collections");
+  return res.collections;
+}
+
 export async function listDocuments(
   collection: string,
   options?: { limit?: number; offset?: number }
@@ -139,6 +154,13 @@ export async function deleteDocument(collection: string, id: string): Promise<vo
   await req<void>(`/${collection}/${id}`, { method: "DELETE" });
 }
 
+export async function listDocumentPaths(
+  collection: string,
+  id: string
+): Promise<{ id: string; collection: string; paths: { tree: string; path: string }[] }> {
+  return req(`/${collection}/${id}/paths`);
+}
+
 export async function listVersions(
   collection: string,
   id: string
@@ -149,12 +171,176 @@ export async function listVersions(
 export async function setLabel(
   collection: string,
   id: string,
-  label: string
+  label: string,
+  version?: number
 ): Promise<void> {
   await req<void>(`/${collection}/${id}/labels`, {
     method: "POST",
-    body: JSON.stringify({ label }),
+    body: JSON.stringify(version !== undefined ? { label, version } : { label }),
   });
+}
+
+export async function getCollectionSchema(
+  collection: string
+): Promise<{ collection: string; collectionType: "json" | "binary"; schema: unknown; displayName: string | null; updatedAt: string } | null> {
+  try {
+    return await req(`/${collection}/_schema`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export async function setCollectionSchema(
+  collection: string,
+  schema: unknown,
+  displayName?: string | null,
+  collectionType?: "json" | "binary"
+): Promise<void> {
+  const payload: Record<string, unknown> = { schema, displayName: displayName ?? null };
+  if (collectionType !== undefined) payload.collectionType = collectionType;
+  await req(`/${collection}/_schema`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Binary assets ---
+
+export async function createAsset(collection: string, file: File): Promise<Document> {
+  const base = getApiUrl();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${base}/${collection}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Accept": "application/json", "Origin": base },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new ApiError(res.status, body.error ?? res.statusText);
+  }
+  return res.json() as Promise<Document>;
+}
+
+export async function updateAsset(collection: string, id: string, file: File): Promise<Document> {
+  const base = getApiUrl();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${base}/${collection}/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Accept": "application/json", "Origin": base },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new ApiError(res.status, body.error ?? res.statusText);
+  }
+  return res.json() as Promise<Document>;
+}
+
+export function getAssetRawUrl(collection: string, id: string, version?: number): string {
+  const base = getApiUrl();
+  const qs = version !== undefined ? `?version=${version}` : "";
+  return `${base}/${collection}/${id}/raw${qs}`;
+}
+
+export async function deleteCollectionSchema(collection: string): Promise<void> {
+  await req(`/${collection}/_schema`, { method: "DELETE" });
+}
+
+export interface TreeInfo {
+  name: string;
+  count: number;
+}
+
+export interface TreeChild {
+  path: string;
+  documentId: string;
+}
+
+export interface TreeNode {
+  path: string;
+  document: Document | null;
+  assignmentDocId: string | null;
+  children: TreeChild[];
+}
+
+export async function listTrees(): Promise<TreeInfo[]> {
+  const res = await req<{ trees: TreeInfo[] }>("/tree");
+  return res.trees;
+}
+
+export async function getTreeNode(treeName: string, path: string): Promise<TreeNode> {
+  return req<TreeNode>(`/tree/${treeName}${path}`);
+}
+
+export async function setTreePath(treeName: string, path: string, documentId: string): Promise<void> {
+  await req<void>(`/tree/${treeName}${path}`, {
+    method: "PUT",
+    body: JSON.stringify({ documentId }),
+  });
+}
+
+export async function deleteTreePath(treeName: string, path: string): Promise<void> {
+  await req<void>(`/tree/${treeName}${path}`, { method: "DELETE" });
+}
+
+export interface FullTreeNode {
+  path: string;
+  documentId: string;
+  document: {
+    id: string;
+    collection: string;
+    version: number;
+    data: Record<string, unknown>;
+  };
+}
+
+export async function listFullTree(treeName: string): Promise<FullTreeNode[]> {
+  const res = await req<{ tree: string; nodes: FullTreeNode[] }>(`/tree/${treeName}?full=true`);
+  return res.nodes;
+}
+
+export async function getVersionData(
+  collection: string,
+  id: string,
+  version: number
+): Promise<Document> {
+  return req<Document>(`/${collection}/${id}/versions/${version}`);
+}
+
+// --- API Keys ---
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  key: string; // full key, returned once only
+}
+
+export async function listApiKeys(): Promise<ApiKey[]> {
+  const res = await req<{ keys: ApiKey[] }>("/api/keys");
+  return res.keys;
+}
+
+export async function createApiKey(name: string): Promise<ApiKeyCreated> {
+  return req<ApiKeyCreated>("/api/keys", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function revokeApiKey(id: string): Promise<void> {
+  await req<void>(`/api/keys/${id}`, { method: "DELETE" });
 }
 
 export async function diffVersions(

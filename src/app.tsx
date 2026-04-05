@@ -7,58 +7,105 @@ import { Layout } from "./layout";
 import { LoginPage } from "./pages/LoginPage";
 import { CollectionPage } from "./pages/CollectionPage";
 import { DocumentPage } from "./pages/DocumentPage";
+import { TreePage } from "./pages/TreePage";
+import { ApiKeysPage } from "./pages/ApiKeysPage";
+import { ComponentsPage } from "./pages/ComponentsPage";
 
 type Route =
   | { page: "landing" }
-  | { page: "collection"; name: string }
-  | { page: "document"; collection: string; id: string };
+  | { page: "collection"; name: string; tab?: "documents" | "schema" }
+  | { page: "document"; collection: string; id: string; tab?: "data" | "history" | "paths" }
+  | { page: "tree"; treeName: string; path: string; view?: "browse" | "full" }
+  | { page: "apikeys" }
+  | { page: "components" };
 
 function parseHash(hash: string): Route {
-  const path = hash.replace(/^#/, "");
-  const parts = path.split("/").filter(Boolean);
+  // Split hash into path and query string: #/some/path?key=val
+  const withoutHash = hash.replace(/^#/, "");
+  const [pathPart, queryPart] = withoutHash.split("?");
+  const params = new URLSearchParams(queryPart ?? "");
+  const parts = pathPart.split("/").filter(Boolean);
+
   if (parts.length === 0) return { page: "landing" };
+
   if (parts[0] === "collections") {
     if (parts[1] && parts[2]) {
-      return { page: "document", collection: parts[1], id: parts[2] };
+      const tab = params.get("tab");
+      return {
+        page: "document",
+        collection: parts[1],
+        id: parts[2],
+        tab: (tab === "history" || tab === "paths") ? tab : "data",
+      };
     }
     if (parts[1]) {
-      return { page: "collection", name: parts[1] };
+      const tab = params.get("tab");
+      return {
+        page: "collection",
+        name: parts[1],
+        tab: tab === "schema" ? "schema" : "documents",
+      };
     }
   }
+
+  if (parts[0] === "tree") {
+    const treeName = parts[1] ?? "main";
+    const treePath = "/" + parts.slice(2).join("/");
+    const view = params.get("view");
+    return {
+      page: "tree",
+      treeName,
+      path: treePath || "/",
+      view: view === "full" ? "full" : "browse",
+    };
+  }
+
+  if (parts[0] === "settings" && parts[1] === "api-keys") return { page: "apikeys" };
+  if (parts[0] === "settings" && parts[1] === "components") return { page: "components" };
+
   return { page: "landing" };
+}
+
+export function buildHash(route: Route): string {
+  if (route.page === "landing") return "#/";
+  if (route.page === "collection") {
+    const base = `#/collections/${route.name}`;
+    return route.tab === "schema" ? `${base}?tab=schema` : base;
+  }
+  if (route.page === "document") {
+    const base = `#/collections/${route.collection}/${route.id}`;
+    if (route.tab === "history") return `${base}?tab=history`;
+    if (route.tab === "paths")   return `${base}?tab=paths`;
+    return base;
+  }
+  if (route.page === "tree") {
+    const base = `#/tree/${route.treeName}${route.path}`;
+    return route.view === "full" ? `${base}?view=full` : base;
+  }
+  if (route.page === "apikeys") return "#/settings/api-keys";
+  if (route.page === "components") return "#/settings/components";
+  return "#/";
 }
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
-  const [collectionInput, setCollectionInput] = useState("");
 
   useEffect(() => {
     getSession()
-      .then((session) => {
-        setUser(session?.user ?? null);
-      })
+      .then((session) => { setUser(session?.user ?? null); })
       .catch(() => setUser(null))
       .finally(() => setSessionChecked(true));
   }, []);
 
   useEffect(() => {
     function onHashChange() {
-      const r = parseHash(window.location.hash);
-      setRoute(r);
-      if (r.page === "collection") setCollectionInput(r.name);
-      if (r.page === "document") setCollectionInput(r.collection);
+      setRoute(parseHash(window.location.hash));
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
-
-  // Sync collectionInput with route on initial load
-  useEffect(() => {
-    if (route.page === "collection") setCollectionInput(route.name);
-    if (route.page === "document") setCollectionInput(route.collection);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
     try {
@@ -85,23 +132,29 @@ function App() {
         <DocumentPage
           collection={route.collection}
           id={route.id}
+          tab={route.tab}
           user={user}
         />
       );
     }
-    if (route.page === "collection") {
-      return <CollectionPage collection={route.name} user={user} />;
-    }
+    if (route.page === "collection") return <CollectionPage collection={route.name} tab={route.tab} user={user} />;
+    if (route.page === "tree") return <TreePage treeName={route.treeName} path={route.path} view={route.view} user={user} />;
+    if (route.page === "apikeys") return <ApiKeysPage />;
+    if (route.page === "components") return <ComponentsPage />;
     return <CollectionPage collection={null} user={user} />;
   }
 
+  const activeCollection =
+    route.page === "collection" ? route.name :
+    route.page === "document" ? route.collection :
+    null;
+  const activeSection: "collections" | "tree" | "settings" =
+    route.page === "tree" ? "tree" :
+    (route.page === "apikeys" || route.page === "components") ? "settings" :
+    "collections";
+
   return (
-    <Layout
-      user={user}
-      onSignOut={handleSignOut}
-      collectionInput={collectionInput}
-      onCollectionInput={setCollectionInput}
-    >
+    <Layout user={user} onSignOut={handleSignOut} activeCollection={activeCollection} activeSection={activeSection}>
       {renderPage()}
     </Layout>
   );
