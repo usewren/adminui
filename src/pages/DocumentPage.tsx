@@ -34,6 +34,7 @@ type Tab = "data" | "history" | "paths";
 interface VersionWithDiff extends VersionMeta {
   diff: DiffEntry[] | null; // null = not yet loaded, [] = no changes (v1 create)
   v1data?: Record<string, unknown>; // only for version 1 (created with)
+  labels: string[];
 }
 
 function fieldLabel(path: string): string {
@@ -130,6 +131,9 @@ function VersionTimeline({
               <div className="vt-card-header">
                 <Badge label={`v${v.version}`} variant="blue" />
                 <span className="vt-badge-op">{isCreate ? "created" : "updated"}</span>
+                {(v.labels ?? []).map(l => (
+                  <Badge key={l} label={l} variant="green" />
+                ))}
                 <span className="vt-time">
                   {v.createdAt ? new Date(v.createdAt).toLocaleString() : "—"}
                 </span>
@@ -510,6 +514,9 @@ export function DocumentPage({ collection, id, tab: tabProp, user: _user }: Docu
           {doc.id}
         </h1>
         <Badge label={`v${doc.version}`} variant="blue" />
+        {(doc.labels ?? []).map(l => (
+          <Badge key={l} label={l} variant="green" />
+        ))}
         <span className="admin-meta">Created {new Date(doc.createdAt).toLocaleString()}</span>
         <span className="admin-meta">Updated {new Date(doc.updatedAt).toLocaleString()}</span>
       </div>

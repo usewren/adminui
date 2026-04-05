@@ -47,6 +47,7 @@ export interface Document {
   version: number;
   collection: string;
   data: Record<string, unknown>;
+  labels: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +60,7 @@ export interface DocumentList {
 
 export interface VersionMeta {
   version: number;
+  labels: string[];
   createdAt: string;
   createdBy: string;
 }

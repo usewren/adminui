@@ -285,6 +285,17 @@ export function CollectionPage({ collection, tab: tabProp, user: _user }: Collec
           render: (row: DocRow) => <span>v{row.version}</span>,
         },
         {
+          key: "labels" as const,
+          header: "Labels",
+          render: (row: DocRow) => (
+            <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {(row.labels ?? []).map(l => (
+                <span key={l} className="wren-badge wren-badge--info" style={{ fontSize: 11 }}>{l}</span>
+              ))}
+            </span>
+          ),
+        },
+        {
           key: "updatedAt" as const,
           header: "Updated At",
           render: (row: DocRow) => (
@@ -311,6 +322,17 @@ export function CollectionPage({ collection, tab: tabProp, user: _user }: Collec
           key: "version" as const,
           header: "Version",
           render: (row: DocRow) => <span>v{row.version}</span>,
+        },
+        {
+          key: "labels" as const,
+          header: "Labels",
+          render: (row: DocRow) => (
+            <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {(row.labels ?? []).map(l => (
+                <span key={l} className="wren-badge wren-badge--info" style={{ fontSize: 11 }}>{l}</span>
+              ))}
+            </span>
+          ),
         },
         {
           key: "updatedAt" as const,
