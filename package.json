@@ -1,0 +1,22 @@
+{
+  "name": "adminui",
+  "type": "module",
+  "private": true,
+  "module": "server.ts",
+  "scripts": {
+    "dev": "bun --hot server.ts",
+    "start": "bun server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "componentlibrary": "../componentlibrary",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  }
+}
