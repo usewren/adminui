@@ -407,6 +407,29 @@ export async function acceptInvite(token: string): Promise<{ accepted: boolean; 
   });
 }
 
+export interface ReceivedInvite {
+  id: string;
+  orgId: string;
+  orgName: string;
+  orgEmail: string;
+  role: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+}
+
+export async function listReceivedInvites(): Promise<ReceivedInvite[]> {
+  const res = await req<{ invites: ReceivedInvite[] }>("/api/invites/received");
+  return res.invites;
+}
+
+export async function acceptInviteById(inviteId: string): Promise<{ accepted: boolean; orgId: string }> {
+  return req<{ accepted: boolean; orgId: string }>(`/api/invites/${inviteId}/accept`, {
+    method: "POST",
+  });
+}
+
 // --- Members ---
 
 export interface Member {

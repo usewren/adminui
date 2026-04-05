@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   listInvites, createInvite, revokeInvite,
+  listReceivedInvites, acceptInviteById,
   listMembers, removeMember,
-  type Invite, type InviteCreated, type Member,
+  type Invite, type InviteCreated, type ReceivedInvite, type Member,
   getApiUrl, ApiError,
 } from "../api";
 import { ConfirmButton } from "../ConfirmButton";
@@ -19,8 +20,10 @@ function statusBadge(invite: Invite): React.ReactElement {
 
 export function CollaboratorsPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [received, setReceived] = useState<ReceivedInvite[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accepting, setAccepting] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [newInvite, setNewInvite] = useState<InviteCreated | null>(null);
@@ -29,8 +32,9 @@ export function CollaboratorsPage() {
 
   async function reload() {
     try {
-      const [inv, mem] = await Promise.all([listInvites(), listMembers()]);
+      const [inv, recv, mem] = await Promise.all([listInvites(), listReceivedInvites(), listMembers()]);
       setInvites(inv);
+      setReceived(recv);
       setMembers(mem);
     } catch {
       // ignore
@@ -79,6 +83,17 @@ export function CollaboratorsPage() {
     reload();
   }
 
+  async function handleAcceptById(inviteId: string) {
+    setAccepting(inviteId);
+    try {
+      await acceptInviteById(inviteId);
+      window.location.reload(); // reload page so org switcher reflects new membership
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to accept invite");
+      setAccepting(null);
+    }
+  }
+
   const pendingInvites = invites.filter(i => !i.revokedAt && !i.acceptedAt && new Date(i.expiresAt) >= new Date());
   const pastInvites   = invites.filter(i =>  i.revokedAt ||  i.acceptedAt || new Date(i.expiresAt) <  new Date());
 
@@ -88,6 +103,42 @@ export function CollaboratorsPage() {
       <p style={{ color: "var(--wren-text-muted)", marginBottom: 32 }}>
         Invite team members to share your workspace. Collaborators have full read/write access.
       </p>
+
+      {/* Received invites */}
+      {received.filter(i => !i.acceptedAt && !i.revokedAt && new Date(i.expiresAt) >= new Date()).length > 0 && (
+        <section style={{
+          marginBottom: 32,
+          padding: "16px 20px",
+          background: "var(--wren-surface-raised)",
+          border: "1px solid var(--wren-border)",
+          borderRadius: 10,
+        }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+            Pending invitations for you
+          </h2>
+          {received
+            .filter(i => !i.acceptedAt && !i.revokedAt && new Date(i.expiresAt) >= new Date())
+            .map(i => (
+              <div key={i.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--wren-border)" }}>
+                <div>
+                  <span style={{ fontWeight: 500 }}>{i.orgName}</span>
+                  <span style={{ color: "var(--wren-text-muted)", fontSize: 13 }}> ({i.orgEmail})</span>
+                  <span style={{ marginLeft: 8 }}><span className="wren-badge wren-badge--neutral">{i.role}</span></span>
+                  <div style={{ fontSize: 12, color: "var(--wren-text-muted)", marginTop: 2 }}>
+                    Expires {new Date(i.expiresAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  className="wren-btn wren-btn--primary wren-btn--sm"
+                  disabled={accepting === i.id}
+                  onClick={() => handleAcceptById(i.id)}
+                >
+                  {accepting === i.id ? "Accepting…" : "Accept"}
+                </button>
+              </div>
+            ))}
+        </section>
+      )}
 
       {/* Invite form */}
       <section style={{ marginBottom: 40 }}>
