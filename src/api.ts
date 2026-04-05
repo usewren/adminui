@@ -343,6 +343,64 @@ export async function revokeApiKey(id: string): Promise<void> {
   await req<void>(`/api/keys/${id}`, { method: "DELETE" });
 }
 
+// --- Invites ---
+
+export interface Invite {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface InviteCreated extends Invite {
+  token: string; // raw token, returned once only
+}
+
+export async function listInvites(): Promise<Invite[]> {
+  const res = await req<{ invites: Invite[] }>("/api/invites");
+  return res.invites;
+}
+
+export async function createInvite(email: string, role = "member"): Promise<InviteCreated> {
+  return req<InviteCreated>("/api/invites", {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function revokeInvite(id: string): Promise<void> {
+  await req<void>(`/api/invites/${id}`, { method: "DELETE" });
+}
+
+export async function acceptInvite(token: string): Promise<{ accepted: boolean; orgId: string }> {
+  return req<{ accepted: boolean; orgId: string }>("/api/invites/accept", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+// --- Members ---
+
+export interface Member {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+}
+
+export async function listMembers(): Promise<Member[]> {
+  const res = await req<{ members: Member[] }>("/api/members");
+  return res.members;
+}
+
+export async function removeMember(userId: string): Promise<void> {
+  await req<void>(`/api/members/${userId}`, { method: "DELETE" });
+}
+
 export async function diffVersions(
   collection: string,
   id: string,

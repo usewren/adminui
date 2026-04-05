@@ -80,6 +80,12 @@ export function Layout({ user, onSignOut, activeCollection, activeSection, child
                 API Keys
               </div>
               <div
+                className={`admin-sidebar__nav-item${window.location.hash.includes("collaborators") ? " admin-sidebar__nav-item--active" : ""}`}
+                onClick={() => { window.location.hash = "#/settings/collaborators"; }}
+              >
+                Collaborators
+              </div>
+              <div
                 className={`admin-sidebar__nav-item${window.location.hash.includes("components") ? " admin-sidebar__nav-item--active" : ""}`}
                 onClick={() => { window.location.hash = "#/settings/components"; }}
               >

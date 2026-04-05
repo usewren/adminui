@@ -10,6 +10,8 @@ import { DocumentPage } from "./pages/DocumentPage";
 import { TreePage } from "./pages/TreePage";
 import { ApiKeysPage } from "./pages/ApiKeysPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
+import { CollaboratorsPage } from "./pages/CollaboratorsPage";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 
 type Route =
   | { page: "landing" }
@@ -17,7 +19,9 @@ type Route =
   | { page: "document"; collection: string; id: string; tab?: "data" | "history" | "paths" }
   | { page: "tree"; treeName: string; path: string; view?: "browse" | "full" }
   | { page: "apikeys" }
-  | { page: "components" };
+  | { page: "components" }
+  | { page: "collaborators" }
+  | { page: "accept-invite"; token: string };
 
 function parseHash(hash: string): Route {
   // Split hash into path and query string: #/some/path?key=val
@@ -62,6 +66,12 @@ function parseHash(hash: string): Route {
 
   if (parts[0] === "settings" && parts[1] === "api-keys") return { page: "apikeys" };
   if (parts[0] === "settings" && parts[1] === "components") return { page: "components" };
+  if (parts[0] === "settings" && parts[1] === "collaborators") return { page: "collaborators" };
+
+  if (parts[0] === "invites" && parts[1] === "accept") {
+    const token = params.get("token") ?? "";
+    return { page: "accept-invite", token };
+  }
 
   return { page: "landing" };
 }
@@ -84,6 +94,8 @@ export function buildHash(route: Route): string {
   }
   if (route.page === "apikeys") return "#/settings/api-keys";
   if (route.page === "components") return "#/settings/components";
+  if (route.page === "collaborators") return "#/settings/collaborators";
+  if (route.page === "accept-invite") return `#/invites/accept?token=${route.token}`;
   return "#/";
 }
 
@@ -141,6 +153,8 @@ function App() {
     if (route.page === "tree") return <TreePage treeName={route.treeName} path={route.path} view={route.view} user={user} />;
     if (route.page === "apikeys") return <ApiKeysPage />;
     if (route.page === "components") return <ComponentsPage />;
+    if (route.page === "collaborators") return <CollaboratorsPage />;
+    if (route.page === "accept-invite") return <AcceptInvitePage token={route.token} />;
     return <CollectionPage collection={null} user={user} />;
   }
 
@@ -150,7 +164,7 @@ function App() {
     null;
   const activeSection: "collections" | "tree" | "settings" =
     route.page === "tree" ? "tree" :
-    (route.page === "apikeys" || route.page === "components") ? "settings" :
+    (route.page === "apikeys" || route.page === "components" || route.page === "collaborators") ? "settings" :
     "collections";
 
   return (
