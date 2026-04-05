@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listCollections, type CollectionInfo, type User } from "./api";
+import { listCollections, getOrgContext, switchOrg, type CollectionInfo, type OrgContext, type User } from "./api";
 
 interface LayoutProps {
   user: User;
@@ -14,15 +14,29 @@ export function Layout({ user, onSignOut, activeCollection, activeSection, child
   const [input, setInput] = useState("");
   const [showNewInput, setShowNewInput] = useState(false);
   const [newInput, setNewInput] = useState("");
+  const [orgCtx, setOrgCtx] = useState<OrgContext | null>(null);
+  const [switchingOrg, setSwitchingOrg] = useState(false);
 
   useEffect(() => {
     listCollections().then(setCollections).catch(() => {});
+    getOrgContext().then(setOrgCtx).catch(() => {});
   }, []);
 
   // Refresh collection list when navigating back to a collection (new docs may have been added)
   useEffect(() => {
     listCollections().then(setCollections).catch(() => {});
   }, [activeCollection]);
+
+  async function handleOrgSwitch(orgId: string) {
+    if (orgId === orgCtx?.current || switchingOrg) return;
+    setSwitchingOrg(true);
+    try {
+      await switchOrg(orgId);
+      window.location.reload();
+    } catch {
+      setSwitchingOrg(false);
+    }
+  }
 
   function navigate(name: string) {
     window.location.hash = `#/collections/${name}`;
@@ -35,6 +49,23 @@ export function Layout({ user, onSignOut, activeCollection, activeSection, child
           <img src="/wren-logo.svg" alt="" style={{ width: 24, height: 24, borderRadius: 5, marginRight: 8, verticalAlign: "middle" }} />
           Wren
         </div>
+        {orgCtx && orgCtx.orgs.length > 1 && (
+          <div style={{ padding: "0 12px 10px" }}>
+            <select
+              className="wren-input"
+              value={orgCtx.current}
+              disabled={switchingOrg}
+              onChange={e => handleOrgSwitch(e.target.value)}
+              style={{ width: "100%", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+            >
+              {orgCtx.orgs.map(o => (
+                <option key={o.id} value={o.id}>
+                  {o.own ? "My workspace" : o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <nav className="admin-sidebar__nav">
           <div className="admin-sidebar__section-links">
             <span

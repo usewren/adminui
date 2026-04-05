@@ -343,6 +343,31 @@ export async function revokeApiKey(id: string): Promise<void> {
   await req<void>(`/api/keys/${id}`, { method: "DELETE" });
 }
 
+// --- Org context ---
+
+export interface OrgInfo {
+  id: string;
+  name: string;
+  email?: string;
+  own: boolean;
+}
+
+export interface OrgContext {
+  current: string;
+  orgs: OrgInfo[];
+}
+
+export async function getOrgContext(): Promise<OrgContext> {
+  return req<OrgContext>("/api/org");
+}
+
+export async function switchOrg(orgId: string): Promise<void> {
+  await req<{ current: string }>("/api/org", {
+    method: "PUT",
+    body: JSON.stringify({ orgId }),
+  });
+}
+
 // --- Invites ---
 
 export interface Invite {
