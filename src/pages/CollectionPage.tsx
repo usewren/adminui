@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button, Table, Spinner, EmptyState, Card, Tabs } from "componentlibrary";
 import { ConfirmButton } from "../ConfirmButton";
+import { AccessTab } from "../components/AccessTab";
 import {
   listDocuments,
   createDocument,
@@ -16,7 +17,7 @@ import {
 
 interface CollectionPageProps {
   collection: string | null;
-  tab?: "documents" | "schema";
+  tab?: "documents" | "schema" | "access";
   user: User;
 }
 
@@ -38,11 +39,12 @@ function docPreview(data: Record<string, unknown>, displayRule: string): string 
 export function CollectionPage({ collection, tab: tabProp, user: _user }: CollectionPageProps) {
   const activeTab = tabProp ?? "documents";
 
-  function setTab(t: "documents" | "schema") {
+  function setTab(t: "documents" | "schema" | "access") {
     if (!collection) return;
-    const hash = t === "schema"
-      ? `#/collections/${collection}?tab=schema`
-      : `#/collections/${collection}`;
+    const hash =
+      t === "schema" ? `#/collections/${collection}?tab=schema` :
+      t === "access" ? `#/collections/${collection}?tab=access` :
+      `#/collections/${collection}`;
     window.location.hash = hash;
   }
 
@@ -368,10 +370,11 @@ export function CollectionPage({ collection, tab: tabProp, user: _user }: Collec
       <Tabs
         tabs={[
           { key: "documents", label: "Documents" },
-          { key: "schema", label: "Schema" },
+          { key: "schema",    label: "Schema" },
+          { key: "access",    label: "Access" },
         ]}
         active={activeTab}
-        onChange={(k) => setTab(k as "documents" | "schema")}
+        onChange={(k) => setTab(k as "documents" | "schema" | "access")}
       />
 
       <div className="admin-tab-content">
@@ -440,6 +443,10 @@ export function CollectionPage({ collection, tab: tabProp, user: _user }: Collec
               </>
             )}
           </>
+        )}
+
+        {activeTab === "access" && collection && (
+          <AccessTab resource={`collection:${collection}`} resourceType="collection" />
         )}
 
         {activeTab === "schema" && (

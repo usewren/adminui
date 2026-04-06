@@ -16,7 +16,7 @@ import { PermissionsPage } from "./pages/PermissionsPage";
 
 type Route =
   | { page: "landing" }
-  | { page: "collection"; name: string; tab?: "documents" | "schema" }
+  | { page: "collection"; name: string; tab?: "documents" | "schema" | "access" }
   | { page: "document"; collection: string; id: string; tab?: "data" | "history" | "paths" }
   | { page: "tree"; treeName: string; path: string; view?: "browse" | "full" }
   | { page: "apikeys" }
@@ -49,7 +49,7 @@ function parseHash(hash: string): Route {
       return {
         page: "collection",
         name: parts[1],
-        tab: tab === "schema" ? "schema" : "documents",
+        tab: tab === "schema" ? "schema" : tab === "access" ? "access" : "documents",
       };
     }
   }
@@ -83,7 +83,9 @@ export function buildHash(route: Route): string {
   if (route.page === "landing") return "#/";
   if (route.page === "collection") {
     const base = `#/collections/${route.name}`;
-    return route.tab === "schema" ? `${base}?tab=schema` : base;
+    if (route.tab === "schema") return `${base}?tab=schema`;
+    if (route.tab === "access") return `${base}?tab=access`;
+    return base;
   }
   if (route.page === "document") {
     const base = `#/collections/${route.collection}/${route.id}`;
