@@ -11,14 +11,15 @@ import { ConfirmButton } from "../ConfirmButton";
 const ACCESS_LEVELS = ["none", "read", "write", "admin"] as const;
 const FILTER_LANGS  = ["jq", "jmespath", "jsonata"] as const;
 
+// Uses real badge variants from the component library
 function accessBadge(access: string) {
   const cls: Record<string, string> = {
-    none:  "wren-badge--neutral",
-    read:  "wren-badge--info",
-    write: "wren-badge--warning",
-    admin: "wren-badge--error",
+    none:  "wren-badge--default",
+    read:  "wren-badge--blue",
+    write: "wren-badge--amber",
+    admin: "wren-badge--red",
   };
-  return <span className={`wren-badge ${cls[access] ?? ""}`}>{access}</span>;
+  return <span className={`wren-badge ${cls[access] ?? "wren-badge--default"}`}>{access}</span>;
 }
 
 function principalLabel(principal: string, members: Member[], keys: ApiKey[]): string {
@@ -33,6 +34,15 @@ function principalLabel(principal: string, members: Member[], keys: ApiKey[]): s
     return k ? `key: ${k.name} (${k.keyPrefix}…)` : principal;
   }
   return principal;
+}
+
+function notesText(p: Permission): string {
+  return [
+    p.labelFilter ? `label: ${p.labelFilter}` : "",
+    p.filterExpr  ? `${p.filterLang}: ${p.filterExpr}` : "",
+    p.auditReads  ? "audit reads" : "",
+    p.auditWrites ? "audit writes" : "",
+  ].filter(Boolean).join(" · ") || "—";
 }
 
 export function PermissionsPage() {
@@ -55,7 +65,7 @@ export function PermissionsPage() {
   const [submitting, setSubmitting]     = useState(false);
   const [formError, setFormError]       = useState<string | null>(null);
 
-  // Edit overlay (open a small panel below the row)
+  // Edit state
   const [editId, setEditId] = useState<string | null>(null);
   const [editAccess, setEditAccess]           = useState<Permission["access"]>("read");
   const [editLabelFilter, setEditLabelFilter] = useState("");
@@ -101,17 +111,13 @@ export function PermissionsPage() {
     setSubmitting(true);
     try {
       const created = await createPermission({
-        principal,
-        resource,
-        access,
+        principal, resource, access,
         labelFilter: labelFilter || null,
         filterLang: filterLang || null,
         filterExpr: filterExpr || null,
-        auditReads,
-        auditWrites,
+        auditReads, auditWrites,
       });
       setPermissions(prev => [created, ...prev]);
-      // reset form
       setPrincipal(""); setResource(""); setAccess("read");
       setLabelFilter(""); setFilterLang(null); setFilterExpr("");
       setAuditReads(false); setAuditWrites(false);
@@ -148,184 +154,190 @@ export function PermissionsPage() {
     ...keys.map(k =>   ({ value: `key:${k.id}`,          label: `API key: ${k.name} (${k.keyPrefix}…)` })),
   ];
 
-  if (loading) return <div className="wren-loading">Loading…</div>;
+  if (loading) return <div className="admin-spinner-center"><span style={{ color: "var(--wren-text-muted)", fontSize: 14 }}>Loading…</span></div>;
 
   return (
-    <div className="wren-page">
-      <div className="wren-page__header">
-        <h1 className="wren-page__title">Permissions</h1>
-        <p className="wren-page__subtitle">
+    <div>
+      {/* Header */}
+      <div className="page-header">
+        <h1 className="page-header__title">Permissions</h1>
+        <p className="page-header__subtitle">
           Control access for collaborators and API keys. The org owner always has full access.
           Access is denied by default — add a rule to grant it.
         </p>
       </div>
 
-      {error && <div className="wren-alert wren-alert--error">{error}</div>}
+      {error && <div className="admin-error">{error}</div>}
 
-      {/* ── Add rule form ── */}
-      <section className="wren-card" style={{ marginBottom: "1.5rem" }}>
-        <h2 className="wren-section-title">Add Rule</h2>
-        <form onSubmit={handleCreate}>
-          {/* Main row: who, what, level */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: "0.5rem", alignItems: "end" }}>
-            <div className="wren-field" style={{ margin: 0 }}>
-              <label className="wren-label">Who</label>
-              {principalOptions.length > 0 ? (
-                <select className="wren-select" value={principal}
-                  onChange={e => setPrincipal(e.target.value)} required>
-                  <option value="">— select —</option>
-                  {principalOptions.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
+      {/* Add rule form */}
+      <div className="wren-card" style={{ marginBottom: "1.25rem" }}>
+        <div className="wren-card__header">Add Rule</div>
+        <div className="wren-card__body">
+          <form onSubmit={handleCreate}>
+
+            {/* Main row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: "0.75rem", alignItems: "end" }}>
+              <div className="field">
+                <label className="field__label">Who</label>
+                {principalOptions.length > 0 ? (
+                  <select className="wren-input" value={principal}
+                    onChange={e => setPrincipal(e.target.value)} required>
+                    <option value="">— select member or API key —</option>
+                    {principalOptions.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input className="wren-input"
+                    placeholder="member:<userId>  or  key:<keyId>"
+                    value={principal} onChange={e => setPrincipal(e.target.value)} required />
+                )}
+              </div>
+
+              <div className="field">
+                <label className="field__label">Resource</label>
+                <input className="wren-input"
+                  placeholder="collection:name   tree:name   *"
+                  value={resource} onChange={e => setResource(e.target.value)} required />
+              </div>
+
+              <div className="field">
+                <label className="field__label">Access</label>
+                <select className="wren-input" value={access}
+                  onChange={e => setAccess(e.target.value as PermissionCreate["access"])}>
+                  {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
-              ) : (
-                <input className="wren-input" placeholder="member:<userId>  or  key:<keyId>"
-                  value={principal} onChange={e => setPrincipal(e.target.value)} required />
-              )}
+              </div>
+
+              <button type="submit" className="wren-btn wren-btn--primary wren-btn--md"
+                style={{ alignSelf: "end" }} disabled={submitting}>
+                {submitting ? "Adding…" : "Add"}
+              </button>
             </div>
 
-            <div className="wren-field" style={{ margin: 0 }}>
-              <label className="wren-label">Resource</label>
-              <input className="wren-input"
-                placeholder="collection:name  tree:name  *"
-                value={resource} onChange={e => setResource(e.target.value)} required />
+            {/* Advanced toggle */}
+            <div style={{ marginTop: "0.625rem" }}>
+              <button type="button" className="advanced-toggle"
+                onClick={() => setShowAdvanced(v => !v)}>
+                {showAdvanced ? "▲ Hide advanced" : "▼ Advanced"}{" "}
+                <span style={{ opacity: 0.7 }}>(label filter, data filter, audit log)</span>
+              </button>
             </div>
 
-            <div className="wren-field" style={{ margin: 0 }}>
-              <label className="wren-label">Access</label>
-              <select className="wren-select" value={access}
-                onChange={e => setAccess(e.target.value as PermissionCreate["access"])}>
-                {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-
-            <button type="submit" className="wren-btn wren-btn--primary" disabled={submitting}
-              style={{ alignSelf: "end" }}>
-              {submitting ? "Adding…" : "Add"}
-            </button>
-          </div>
-
-          {/* Advanced toggle */}
-          <div style={{ marginTop: "0.6rem" }}>
-            <button type="button" className="wren-btn wren-btn--ghost wren-btn--sm"
-              onClick={() => setShowAdvanced(v => !v)}>
-              {showAdvanced ? "▲ Hide advanced" : "▼ Advanced (label filter, data filter, audit)"}
-            </button>
-          </div>
-
-          {showAdvanced && (
-            <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--wren-border)", display: "grid", gap: "0.6rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                <div className="wren-field" style={{ margin: 0 }}>
-                  <label className="wren-label">Label filter <span className="wren-hint">— scope reads to this label</span></label>
+            {showAdvanced && (
+              <div className="advanced-panel" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div className="field">
+                  <label className="field__label">
+                    Label filter{" "}
+                    <span className="field__hint">— scope reads to this label silently</span>
+                  </label>
                   <input className="wren-input" placeholder="e.g. live"
                     value={labelFilter} onChange={e => setLabelFilter(e.target.value)} />
                 </div>
-                <div className="wren-field" style={{ margin: 0 }}>
-                  <label className="wren-label">Data filter</label>
+
+                <div className="field">
+                  <label className="field__label">Data filter</label>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <select className="wren-select" style={{ width: "130px", flexShrink: 0 }}
+                    <select className="wren-input" style={{ width: "130px", flexShrink: 0 }}
                       value={filterLang ?? ""}
                       onChange={e => setFilterLang((e.target.value || null) as PermissionCreate["filterLang"])}>
                       <option value="">— none —</option>
                       {FILTER_LANGS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
-                    <input className="wren-input" placeholder="expression"
+                    <input className="wren-input" placeholder="expression applied to data"
                       value={filterExpr} disabled={!filterLang}
                       onChange={e => setFilterExpr(e.target.value)} />
                   </div>
                 </div>
+
+                <div style={{ display: "flex", gap: "1.5rem", alignItems: "center", gridColumn: "1 / -1" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.875rem" }}>
+                    <input type="checkbox" checked={auditReads} onChange={e => setAuditReads(e.target.checked)} />
+                    Log reads to audit log
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.875rem" }}>
+                    <input type="checkbox" checked={auditWrites} onChange={e => setAuditWrites(e.target.checked)} />
+                    Log writes to audit log
+                  </label>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: "1.5rem" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.875rem" }}>
-                  <input type="checkbox" checked={auditReads} onChange={e => setAuditReads(e.target.checked)} />
-                  Log reads to audit log
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.875rem" }}>
-                  <input type="checkbox" checked={auditWrites} onChange={e => setAuditWrites(e.target.checked)} />
-                  Log writes to audit log
-                </label>
-              </div>
-            </div>
-          )}
+            )}
 
-          {formError && <div className="wren-alert wren-alert--error" style={{ marginTop: "0.5rem" }}>{formError}</div>}
-        </form>
-      </section>
+            {formError && <div className="admin-error" style={{ marginTop: "0.75rem" }}>{formError}</div>}
+          </form>
+        </div>
+      </div>
 
-      {/* ── Rules table ── */}
-      <section className="wren-card">
-        <h2 className="wren-section-title">
-          Rules
-          {permissions.length > 0 && <span className="wren-count">{permissions.length}</span>}
-        </h2>
-
-        {permissions.length === 0 ? (
-          <p className="wren-empty">No rules yet. Add one above to start restricting access.</p>
-        ) : (
-          <table className="wren-table">
-            <thead>
-              <tr>
-                <th>Who</th>
-                <th>Resource</th>
-                <th>Access</th>
-                <th>Notes</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {permissions.map(p => (
-                <React.Fragment key={p.id}>
-                  <tr>
-                    <td style={{ fontSize: "0.875rem" }}>{principalLabel(p.principal, members, keys)}</td>
-                    <td><code style={{ fontSize: "0.8rem" }}>{p.resource}</code></td>
-                    <td>{accessBadge(p.access)}</td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--wren-text-muted)" }}>
-                      {[
-                        p.labelFilter  ? `label:${p.labelFilter}` : "",
-                        p.filterExpr   ? `${p.filterLang}: ${p.filterExpr}` : "",
-                        p.auditReads   ? "audit reads" : "",
-                        p.auditWrites  ? "audit writes" : "",
-                      ].filter(Boolean).join(" · ") || "—"}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
-                        <button className="wren-btn wren-btn--sm"
-                          onClick={() => editId === p.id ? setEditId(null) : openEdit(p)}>
-                          {editId === p.id ? "Close" : "Edit"}
-                        </button>
-                        <ConfirmButton
-                          label="Delete"
-                          confirmLabel="Confirm"
-                          className="wren-btn wren-btn--sm wren-btn--danger"
-                          onConfirm={() => handleDelete(p.id)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Inline edit panel */}
-                  {editId === p.id && (
+      {/* Rules table */}
+      <div className="wren-card">
+        <div className="wren-card__header">
+          <span className="section-title">
+            Rules
+            {permissions.length > 0 && (
+              <span className="count-badge">{permissions.length}</span>
+            )}
+          </span>
+        </div>
+        <div className="wren-card__body" style={{ padding: 0 }}>
+          {permissions.length === 0 ? (
+            <p className="table-empty" style={{ padding: "1.25rem" }}>
+              No rules yet. Add one above to start restricting access.
+            </p>
+          ) : (
+            <table className="wren-table" style={{ border: "none", borderRadius: 0 }}>
+              <thead>
+                <tr>
+                  <th>Who</th>
+                  <th>Resource</th>
+                  <th>Access</th>
+                  <th>Notes</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {permissions.map(p => (
+                  <React.Fragment key={p.id}>
                     <tr>
-                      <td colSpan={5} style={{ padding: "0.75rem 1rem", background: "var(--wren-surface-2, #f9f9f9)" }}>
-                        <div style={{ display: "grid", gap: "0.6rem" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: "0.5rem", alignItems: "end" }}>
-                            <div className="wren-field" style={{ margin: 0 }}>
-                              <label className="wren-label">Access</label>
-                              <select className="wren-select" value={editAccess}
+                      <td style={{ fontSize: "0.875rem" }}>{principalLabel(p.principal, members, keys)}</td>
+                      <td><code style={{ fontSize: "0.8rem", fontFamily: "var(--wren-mono)" }}>{p.resource}</code></td>
+                      <td>{accessBadge(p.access)}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--wren-text-muted)" }}>{notesText(p)}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          <button className="wren-btn wren-btn--secondary wren-btn--sm"
+                            onClick={() => editId === p.id ? setEditId(null) : openEdit(p)}>
+                            {editId === p.id ? "Close" : "Edit"}
+                          </button>
+                          <ConfirmButton
+                            label="Delete"
+                            confirmLabel="Confirm delete"
+                            className="wren-btn wren-btn--danger wren-btn--sm"
+                            onConfirm={() => handleDelete(p.id)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+
+                    {editId === p.id && (
+                      <tr className="inline-edit-row">
+                        <td colSpan={5}>
+                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: "0.75rem", alignItems: "end" }}>
+                            <div className="field">
+                              <label className="field__label">Access</label>
+                              <select className="wren-input" value={editAccess}
                                 onChange={e => setEditAccess(e.target.value as Permission["access"])}>
                                 {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                               </select>
                             </div>
-                            <div className="wren-field" style={{ margin: 0 }}>
-                              <label className="wren-label">Label filter</label>
+                            <div className="field">
+                              <label className="field__label">Label filter</label>
                               <input className="wren-input" placeholder="e.g. live"
                                 value={editLabelFilter} onChange={e => setEditLabelFilter(e.target.value)} />
                             </div>
-                            <div className="wren-field" style={{ margin: 0 }}>
-                              <label className="wren-label">Data filter</label>
+                            <div className="field">
+                              <label className="field__label">Data filter</label>
                               <div style={{ display: "flex", gap: "0.4rem" }}>
-                                <select className="wren-select" style={{ width: "120px", flexShrink: 0 }}
+                                <select className="wren-input" style={{ width: "120px", flexShrink: 0 }}
                                   value={editFilterLang ?? ""}
                                   onChange={e => setEditFilterLang((e.target.value || null) as Permission["filterLang"])}>
                                   <option value="">—</option>
@@ -337,7 +349,7 @@ export function PermissionsPage() {
                               </div>
                             </div>
                           </div>
-                          <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
+                          <div style={{ display: "flex", gap: "1.25rem", alignItems: "center", marginTop: "0.75rem" }}>
                             <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.875rem" }}>
                               <input type="checkbox" checked={editAuditReads} onChange={e => setEditAuditReads(e.target.checked)} />
                               Log reads
@@ -346,23 +358,21 @@ export function PermissionsPage() {
                               <input type="checkbox" checked={editAuditWrites} onChange={e => setEditAuditWrites(e.target.checked)} />
                               Log writes
                             </label>
-                            <button className="wren-btn wren-btn--primary wren-btn--sm" onClick={handleSaveEdit}>
-                              Save
-                            </button>
-                            <button className="wren-btn wren-btn--sm" onClick={() => setEditId(null)}>
-                              Cancel
-                            </button>
+                            <div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem" }}>
+                              <button className="wren-btn wren-btn--primary wren-btn--sm" onClick={handleSaveEdit}>Save</button>
+                              <button className="wren-btn wren-btn--secondary wren-btn--sm" onClick={() => setEditId(null)}>Cancel</button>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

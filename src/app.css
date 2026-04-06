@@ -591,3 +591,122 @@ body {
   margin: 0;
   font-style: italic;
 }
+
+/* ── Shared page chrome ──────────────────────────────────── */
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--wren-text);
+  margin: 0 0 0.35rem;
+}
+
+.page-header__subtitle {
+  font-size: 0.875rem;
+  color: var(--wren-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Form field (label + control) ────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wren-text-muted);
+}
+
+.field__hint {
+  font-size: 0.75rem;
+  color: var(--wren-text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Card section title ───────────────────────────────────── */
+
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--wren-text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wren-bg-subtle);
+  border: 1px solid var(--wren-border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  color: var(--wren-text-muted);
+}
+
+/* ── Empty table state ────────────────────────────────────── */
+
+.table-empty {
+  font-size: 0.875rem;
+  color: var(--wren-text-muted);
+  padding: 1.25rem 0;
+  margin: 0;
+}
+
+/* ── Advanced toggle ─────────────────────────────────────── */
+
+.advanced-toggle {
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  font-size: 0.8125rem;
+  color: var(--wren-text-muted);
+  cursor: pointer;
+  font-family: var(--wren-font);
+  line-height: 1;
+}
+
+.advanced-toggle:hover {
+  color: var(--wren-primary);
+}
+
+/* ── Advanced panel ──────────────────────────────────────── */
+
+.advanced-panel {
+  padding-top: 0.875rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--wren-border);
+}
+
+/* ── Inline edit row ─────────────────────────────────────── */
+
+.inline-edit-row td {
+  background: var(--wren-bg-subtle);
+  padding: 0.875rem 1rem !important;
+  border-top: 1px solid var(--wren-border);
+}
+
+/* ── Inherited / dimmed rules ────────────────────────────── */
+
+.inherited-row {
+  opacity: 0.65;
+}
