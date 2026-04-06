@@ -117,6 +117,12 @@ export function Layout({ user, onSignOut, activeCollection, activeSection, child
                 Collaborators
               </div>
               <div
+                className={`admin-sidebar__nav-item${window.location.hash.includes("permissions") ? " admin-sidebar__nav-item--active" : ""}`}
+                onClick={() => { window.location.hash = "#/settings/permissions"; }}
+              >
+                Permissions
+              </div>
+              <div
                 className={`admin-sidebar__nav-item${window.location.hash.includes("components") ? " admin-sidebar__nav-item--active" : ""}`}
                 onClick={() => { window.location.hash = "#/settings/components"; }}
               >

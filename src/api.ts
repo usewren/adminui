@@ -461,3 +461,55 @@ export async function diffVersions(
     `/${collection}/${id}/diff?v1=${v1}&v2=${v2}`
   );
 }
+
+// --- Permissions ---
+
+export interface Permission {
+  id: string;
+  principal: string;  // 'member:<userId>' | 'key:<keyId>'
+  resource: string;   // '*' | 'collection:<name>' | 'collection:*' | 'tree:<name>' | 'tree:*'
+  access: "none" | "read" | "write" | "admin";
+  labelFilter: string | null;
+  filterLang: "jq" | "jmespath" | "jsonata" | null;
+  filterExpr: string | null;
+  auditReads: boolean;
+  auditWrites: boolean;
+  createdAt: string;
+}
+
+export interface PermissionCreate {
+  principal: string;
+  resource: string;
+  access: "none" | "read" | "write" | "admin";
+  labelFilter?: string | null;
+  filterLang?: "jq" | "jmespath" | "jsonata" | null;
+  filterExpr?: string | null;
+  auditReads?: boolean;
+  auditWrites?: boolean;
+}
+
+export async function listPermissions(): Promise<Permission[]> {
+  const res = await req<{ permissions: Permission[] }>("/api/permissions");
+  return res.permissions;
+}
+
+export async function createPermission(data: PermissionCreate): Promise<Permission> {
+  return req<Permission>("/api/permissions", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePermission(
+  id: string,
+  patch: Partial<Omit<PermissionCreate, "principal" | "resource">>
+): Promise<Permission> {
+  return req<Permission>(`/api/permissions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deletePermission(id: string): Promise<void> {
+  await req<void>(`/api/permissions/${id}`, { method: "DELETE" });
+}

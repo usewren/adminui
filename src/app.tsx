@@ -12,6 +12,7 @@ import { ApiKeysPage } from "./pages/ApiKeysPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
 import { CollaboratorsPage } from "./pages/CollaboratorsPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { PermissionsPage } from "./pages/PermissionsPage";
 
 type Route =
   | { page: "landing" }
@@ -21,6 +22,7 @@ type Route =
   | { page: "apikeys" }
   | { page: "components" }
   | { page: "collaborators" }
+  | { page: "permissions" }
   | { page: "accept-invite"; token: string };
 
 function parseHash(hash: string): Route {
@@ -67,6 +69,7 @@ function parseHash(hash: string): Route {
   if (parts[0] === "settings" && parts[1] === "api-keys") return { page: "apikeys" };
   if (parts[0] === "settings" && parts[1] === "components") return { page: "components" };
   if (parts[0] === "settings" && parts[1] === "collaborators") return { page: "collaborators" };
+  if (parts[0] === "settings" && parts[1] === "permissions") return { page: "permissions" };
 
   if (parts[0] === "invites" && parts[1] === "accept") {
     const token = params.get("token") ?? "";
@@ -95,6 +98,7 @@ export function buildHash(route: Route): string {
   if (route.page === "apikeys") return "#/settings/api-keys";
   if (route.page === "components") return "#/settings/components";
   if (route.page === "collaborators") return "#/settings/collaborators";
+  if (route.page === "permissions") return "#/settings/permissions";
   if (route.page === "accept-invite") return `#/invites/accept?token=${route.token}`;
   return "#/";
 }
@@ -154,6 +158,7 @@ function App() {
     if (route.page === "apikeys") return <ApiKeysPage />;
     if (route.page === "components") return <ComponentsPage />;
     if (route.page === "collaborators") return <CollaboratorsPage />;
+    if (route.page === "permissions")   return <PermissionsPage />;
     if (route.page === "accept-invite") return <AcceptInvitePage token={route.token} />;
     return <CollectionPage collection={null} user={user} />;
   }
@@ -164,7 +169,7 @@ function App() {
     null;
   const activeSection: "collections" | "tree" | "settings" =
     route.page === "tree" ? "tree" :
-    (route.page === "apikeys" || route.page === "components" || route.page === "collaborators") ? "settings" :
+    (route.page === "apikeys" || route.page === "components" || route.page === "collaborators" || route.page === "permissions") ? "settings" :
     "collections";
 
   return (
